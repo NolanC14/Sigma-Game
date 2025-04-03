@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NOAC - Open World RPG</title>
+    <style>
+        body { text-align: center; background: #333; color: white; font-family: Arial; }
+        canvas { background: #222; display: block; margin: auto; }
+    </style>
+</head>
+<body>
+    <h1>NOAC - Open World RPG</h1>
+    <p>Move: Arrow Keys / WASD | Rob Bank: E | Shoot: Space | Enter Car: E | Buy in Store: B</p>
+    <canvas id="gameCanvas" width="800" height="500"></canvas>
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        let player = { x: 50, y: 50, size: 20, speed: 5, money: 0, wanted: 0, inCar: false, gun: false, bullets: [] };
+        let bank = { x: 300, y: 200, size: 40, robbed: false };
+        let police = { x: -50, y: -50, size: 20, speed: 2, chasing: false, health: 3 };
+        let car = { x: 500, y: 300, size: 30, available: true };
+        let store = { x: 100, y: 400, size: 40 };
+        let npcs = [{ x: 600, y: 200, size: 20, speed: 1 }];
+
+        let keys = {};
+        window.addEventListener("keydown", (e) => keys[e.key] = true);
+        window.addEventListener("keyup", (e) => keys[e.key] = false);
+
+        function update() {
+            if (!player.inCar) {
+                if (keys["ArrowUp"] || keys["w"]) player.y -= player.speed;
+                if (keys["ArrowDown"] || keys["s"]) player.y += player.speed;
+                if (keys["ArrowLeft"] || keys["a"]) player.x -= player.speed;
+                if (keys["ArrowRight"] || keys["d"]) player.x += player.speed;
+            }
+
+            if (Math.abs(player.x - bank.x) < 30 && Math.abs(player.y - bank.y) < 30 && keys["e"] && !bank.robbed) {
+                bank.robbed = true;
+                player.money += 100;
+                player.wanted += 1;
+                police.chasing = true;
+                police.x = 100;
+                police.y = 100;
+                alert("🚔 You robbed the bank! Run!");
+            }
+
+            if (police.chasing) {
+                if (player.x > police.x) police.x += police.speed;
+                if (player.x < police.x) police.x -= police.speed;
+                if (player.y > police.y) police.y += police.speed;
+                if (player.y < police.y) police.y -= police.speed;
+                police.speed = 2 + player.wanted * 0.5;
+
+                if (Math.abs(player.x - police.x) < 20 && Math.abs(player.y - police.y) < 20) {
+                    alert("🚨 You got caught! Game Over!");
+                    player.x = 50;
+                    player.y = 50;
+                    player.money = 0;
+                    player.wanted = 0;
+                    police.chasing = false;
+                    bank.robbed = false;
+                    player.gun = false;
+                    player.inCar = false;
+                    car.available = true;
+                }
+            }
+
+            if (keys["e"] && Math.abs(player.x - car.x) < 30 && Math.abs(player.y - car.y) < 30 && car.available) {
+                player.inCar = true;
+                player.speed = 10;
+                car.available = false;
+            }
+
+            if (player.inCar) {
+                if (keys["ArrowUp"] || keys["w"]) player.y -= player.speed;
+                if (keys["ArrowDown"] || keys["s"]) player.y += player.speed;
+                if (keys["ArrowLeft"] || keys["a"]) player.x -= player.speed;
+                if (keys["ArrowRight"] || keys["d"]) player.x += player.speed;
+            }
+
+            if (keys["b"] && Math.abs(player.x - store.x) < 30 && Math.abs(player.y - store.y) < 30) {
+                if (player.money >= 50) {
+                    player.money -= 50;
+                    player.gun = true;
+                    alert("🔫 You bought a gun!");
+                } else {
+                    alert("❌ Not enough money!");
+                }
+            }
+
+            if (keys[" "] && player.gun) {
+                player.bullets.push({ x: player.x, y: player.y, size: 5, speed: 7 });
+            }
+
+            player.bullets.forEach((bullet, index) => {
+                bullet.x += bullet.speed;
+                if (Math.abs(bullet.x - police.x) < 20 && Math.abs(bullet.y - police.y) < 20) {
+                    police.health -= 1;
+                    player.bullets.splice(index, 1);
+                    if (police.health <= 0) {
+                        police.chasing = false;
+                        police.x = -50;
+                        police.y = -50;
+                        alert("🚔 You defeated the police!");
+                    }
+                }
+            });
+
+            npcs.forEach(npc => {
+                npc.x += npc.speed;
+                if (npc.x > 800 || npc.x < 0) npc.speed *= -1;
+            });
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = player.inCar ? "gray" : "red";
+            ctx.fillRect(player.x, player.y, player.size, player.size);
+
+            ctx.fillStyle = bank.robbed ? "gray" : "green";
+            ctx.fillRect(bank.x, bank.y, bank.size, bank.size);
+
+            if (police.chasing) {
+                ctx.fillStyle = "blue";
+                ctx.fillRect(police.x, police.y, police.size, police.size);
+            }
+
+            if (car.available) {
+                ctx.fillStyle = "purple";
+                ctx.fillRect(car.x, car.y, car.size, car.size);
+            }
+
+            ctx.fillStyle = "orange";
+            ctx.fillRect(store.x, store.y, store.size, store.size);
+
+            ctx.fillStyle = "white";
+            ctx.fillText("Money: $" + player.money, 10, 20);
+            ctx.fillText("Wanted: " + player.wanted, 10, 40);
+
+            player.bullets.forEach(bullet => {
+                ctx.fillStyle = "yellow";
+                ctx.fillRect(bullet.x, bullet.y, bullet.size, bullet.size);
+            });
+
+            npcs.forEach(npc => {
+                ctx.fillStyle = "pink";
+                ctx.fillRect(npc.x, npc.y, npc.size, npc.size);
+            });
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        gameLoop();
+    </script>
+</body>
+</html>
